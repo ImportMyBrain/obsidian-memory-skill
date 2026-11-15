@@ -8,6 +8,8 @@
 
 一个给 **DeepSeek Harness（DSH）** 用的「记忆优先」Skill：纯 Markdown，零依赖，不联网。
 
+> 🌍 想用在 Claude Code / ChatGPT / Codex / Cursor / GitHub Copilot / Gemini CLI？用通用版：[obsidian-memory-anywhere](https://github.com/ImportMyBrain/obsidian-memory-anywhere)。
+
 ---
 
 ## 为什么需要它
@@ -128,6 +130,8 @@ LICENSE                   # MIT
 > Let your AI assistant look through your Obsidian vault before it answers.
 
 A recall-first skill for **DeepSeek Harness (DSH)**. Plain Markdown, no dependencies, no network access.
+
+> 🌍 Need it in Claude Code, ChatGPT/Codex, Cursor, GitHub Copilot or Gemini CLI? Use the portable Agent Skills version: [obsidian-memory-anywhere](https://github.com/ImportMyBrain/obsidian-memory-anywhere).
 
 ## Why
 
