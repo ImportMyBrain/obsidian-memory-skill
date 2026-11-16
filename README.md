@@ -20,18 +20,35 @@
 - 你明明在 Obsidian 里记了目标、偏好、项目进度，它却像第一次见你；
 - 每次都要重新贴背景，贴完还是模板化回答。
 
-`obsidian-memory` 把「先查记忆，再回答」变成固定流程：**每次回答前，先检索你的本地 Obsidian 库，把相关笔记找出来、判断新旧、整合进答案，然后才开口。**
+`obsidian-memory` 把「先查记忆，再回答」变成固定流程：**每次回答前，先分级检索你的本地 Obsidian 库，把相关记忆找出来、判断新旧、整合进答案，然后才开口。**
+
+## 🆕 v2.0：分级检索（省 token）
+
+不再全库 grep + 整篇读，改成 4 级：
+
+| 级别 | 读什么 | 目标大小 |
+| --- | --- | --- |
+| **0 小抄** | `.memory/MEMORY_DIGEST.md`：偏好 / 目标 / 当前项目 / 最近更新 | ~2–3 KB |
+| **1 索引** | `memory-search.mjs` 返回 top 3–5 条摘要 | ≤2 KB |
+| **2 片段** | 候选笔记前 60–80 行 / 关键词附近 ±20 行 | ≤1.5 KB/篇 |
+| **3 原文** | 仅必要时，最多 1–2 篇 | ≤8 KB/篇 |
+
+- 实测：搜“项目”从全库 grep 约 17 KB 输出降到 **0.5–0.8 KB**；每轮记忆读取约 **5–8 KB**，笔记再多也基本恒定。
+- 冷归档（历史对话记录等）默认不参与，问“之前聊过”才查。
+- skill 每会话只加载一次；同一话题追问复用结果。
 
 ## ✨ 它做了什么
 
 | 步骤 | 说明 |
 | --- | --- |
-| 1. 抽关键词 | 从问题里识别项目、课程、人物、目标、时间、专有名词，做同义扩展 |
-| 2. 检索库 | 用 agent 自带工具 `grep` → `glob` → `read`，只读本地 `.md` |
-| 3. 判断记忆 | 直接相关 / 背景相关 / 历史快照 / 无关；冲突时以较新的笔记为准 |
-| 4. 整合回答 | 记忆影响结论、优先级、语气和例子；引用来源与日期，区分事实和推断 |
-| 5. 必要时写回 | 只有出现新事实才更新主笔记并加 `[[双链]]`，没新信息不动库 |
-| 6. 查不到时 | 一句话说明「没查到相关记录」，然后正常回答；绝不编造记忆 |
+| 0. 先看小抄 | `.memory/MEMORY_DIGEST.md`（~2–3 KB） |
+| 1. 查索引 | `memory-search.mjs` 返回 top 3–5 条摘要，不全库 grep |
+| 2. 读片段 | 候选笔记前 60–80 行 / 关键词附近 ±20 行 |
+| 3. 读原文 | 仅必要时，最多 1–2 篇 |
+| 判断记忆 | 直接相关 / 背景相关 / 历史快照（冷）/ 无关；冲突时以较新的笔记为准 |
+| 整合回答 | 记忆影响结论、优先级、语气和例子；引用来源与日期，区分事实和推断 |
+| 必要时写回 | 只有出现新事实才更新主笔记并加 `[[双链]]`，没新信息不动库 |
+| 查不到时 | 一句话说明「没查到相关记录」，然后正常回答；绝不编造记忆 |
 
 ## 📦 安装
 
@@ -69,20 +86,24 @@ cp -r obsidian-memory ~/.dsh/skills/
 
 ```markdown
 - `VAULT`：`D:\Obsidian\MyVault`      # 你的 Obsidian 库根目录
-- `PROFILE_DIR`：`Profile`            # 个人档案目录（相对 VAULT，可选）
-- `ARCHIVE_DIR`：`Chats`              # 历史对话归档（可选）
+- `MEMORY_DIR`：`<VAULT>/.memory`     # 小抄 / 索引目录（默认）
+- `ARCHIVE_DIRS`：`Chats`             # 冷数据目录（可选，可多个）
 - `FALLBACK_MEMORY`：`MEMORY.md`      # 工作区记忆摘要（可选）
 ```
 
-只保留你需要的，其余删掉。`PROFILE_DIR` 里建议放一份「关于我 / 我的偏好」的笔记，检索时先读它，回答会更贴合你。
+只保留你需要的，其余删掉。首次安装 / 库有大改动后，生成小抄和索引：
+
+```bash
+node obsidian-memory/scripts/memory-build.mjs --vault "D:\Obsidian\MyVault" --archive "Chats"
+```
 
 ## 🔁 让它每轮自动生效（推荐）
 
 DSH 的 skill 默认按需加载。想让它**每次回答前都自动跑**，在工作区根目录的 `AGENTS.md` 里加：
 
 ```markdown
-## Obsidian 记忆优先（每轮强制）
-回答任何消息之前，先加载 `obsidian-memory` skill，按其流程检索 Obsidian 库里的相关记忆，整合后再回答。新对话、追问、简单问题、短消息都要做；不查完不要直接回答。
+## Obsidian 记忆优先（每轮强制 · 分级检索 v2）
+会话只加载一次 `obsidian-memory` skill。每轮回答前：先读小抄（MEMORY_DIGEST.md）；不够再跑 memory-search 查索引；仍不够读原文片段；最后才读整篇（最多 1–2 篇）。冷归档默认不参与。
 ```
 
 完整示例见 [`examples/AGENTS.example.md`](examples/AGENTS.example.md)。
@@ -93,7 +114,10 @@ DSH 的 skill 默认按需加载。想让它**每次回答前都自动跑**，�
 
 ```
 obsidian-memory/
-└── SKILL.md              # skill 本体（安装时复制整个文件夹）
+├── SKILL.md              # skill 本体（分级检索流程）
+└── scripts/
+    ├── memory-build.mjs  # 生成小抄 + 索引
+    └── memory-search.mjs # 检索索引（top-k 摘要）
 examples/
 └── AGENTS.example.md     # 每轮自动加载的指令示例
 install.ps1               # Windows 安装脚本
@@ -114,6 +138,13 @@ LICENSE                   # MIT
 ## 📄 License
 
 [MIT](LICENSE)
+
+## 🧾 版本
+
+| 版本 | 日期 | 变化 |
+| --- | --- | --- |
+| **v2.0.0** | 2026-11-16 | 分级检索（小抄 → 索引 → 片段 → 原文）；新增 `memory-build` / `memory-search` 脚本；冷归档默认排除；skill 每会话只加载一次 |
+| v1.0.0 | 2026-11-13 | 首个公开版本 |
 
 ---
 
@@ -137,18 +168,31 @@ A recall-first skill for **DeepSeek Harness (DSH)**. Plain Markdown, no dependen
 
 Chats drift. The assistant forgets last month's project details, even though you wrote everything down in Obsidian. You end up re-explaining your context in every conversation — and still get generic answers.
 
-`obsidian-memory` makes "recall first, answer second" a fixed workflow: **before every answer, search the local vault, judge what's relevant and current, weave it into the answer.**
+`obsidian-memory` makes "recall first, answer second" a fixed workflow: **before every answer, recall in tiers — digest → index → excerpt → full note — and weave it into the answer.**
+
+### New in v2.0 — tiered recall
+
+| Level | What to read | Target size |
+| --- | --- | --- |
+| **0 digest** | `.memory/MEMORY_DIGEST.md` | ~2–3 KB |
+| **1 index** | `memory-search.mjs` top 3–5 rows | ≤2 KB |
+| **2 excerpt** | first 60–80 lines / ±20 lines around a keyword | ≤1.5 KB/note |
+| **3 full note** | only when necessary, max 1–2 notes | ≤8 KB/note |
+
+Measured: a "project" search drops from ~17 KB of raw grep output to 0.5–0.8 KB; per-turn recall ~5–8 KB and roughly constant as the vault grows. Cold archives are excluded by default; load the skill once per session.
 
 ## What it does
 
 | Step | Detail |
 | --- | --- |
-| 1. Extract keywords | Pull topics, projects, people, goals and dates from the message, then expand synonyms |
-| 2. Search the vault | Use the agent's `grep` → `glob` → `read` tools; only local `.md` files |
-| 3. Judge memories | Directly relevant / background / historical snapshot / irrelevant; newer notes win conflicts |
-| 4. Integrate | Let memory shape conclusions, priorities, tone and examples; cite source and date |
-| 5. Write back | Only when there is genuinely new information; add `[[links]]`; never churn the vault |
-| 6. No match | Say "no relevant notes found" and answer normally; never fabricate memories |
+| 0. Digest first | `.memory/MEMORY_DIGEST.md` (~2–3 KB) |
+| 1. Search index | `memory-search.mjs` top 3–5 summaries, no full-vault grep |
+| 2. Read excerpt | first 60–80 lines / ±20 lines around a keyword |
+| 3. Read full note | only when necessary, max 1–2 notes |
+| Judge memories | Direct / background / historical snapshot (cold) / irrelevant; newer notes win conflicts |
+| Integrate | Memory shapes conclusions, priorities, tone and examples; cite source and date |
+| Write back | Only when there is genuinely new information; add `[[links]]`; never churn the vault |
+| No match | Say "no relevant notes found" and answer normally; never fabricate memories |
 
 ## Install
 
@@ -170,9 +214,15 @@ Edit section 0 of `obsidian-memory/SKILL.md`:
 
 ```markdown
 - `VAULT`: `D:\Obsidian\MyVault`      # your vault root
-- `PROFILE_DIR`: `Profile`            # personal profile folder (optional)
-- `ARCHIVE_DIR`: `Chats`              # archived conversations (optional)
+- `MEMORY_DIR`: `<VAULT>/.memory`     # generated digest / index (default)
+- `ARCHIVE_DIRS`: `Chats`             # cold folders (optional)
 - `FALLBACK_MEMORY`: `MEMORY.md`      # workspace memory summary (optional)
+```
+
+Build the digest and index once after installing or after major vault changes:
+
+```bash
+node obsidian-memory/scripts/memory-build.mjs --vault "D:\Obsidian\MyVault" --archive "Chats"
 ```
 
 ## Make it automatic
@@ -180,8 +230,8 @@ Edit section 0 of `obsidian-memory/SKILL.md`:
 DSH loads skills on demand. To run it before **every** answer, add this to your workspace `AGENTS.md`:
 
 ```markdown
-## Obsidian recall first (every turn)
-Before answering any message, load the `obsidian-memory` skill and search the local Obsidian vault for relevant memories, then integrate them into the answer. Do this for new chats, follow-ups, simple questions and short messages too.
+## Obsidian recall first (every turn · tiered v2)
+Load the `obsidian-memory` skill once per session. Before every answer: read the digest (MEMORY_DIGEST.md); if not enough, search the index with memory-search; if needed, read an excerpt; only then a full note (max 1–2). Cold archives are excluded by default.
 ```
 
 See [`examples/AGENTS.example.md`](examples/AGENTS.example.md). Prefer workspace-level instructions over user-global ones if the same machine also runs group-chat bots or other agents.
@@ -195,6 +245,13 @@ See [`examples/AGENTS.example.md`](examples/AGENTS.example.md). Prefer workspace
 ## Compatibility
 
 Built for the **DeepSeek Harness** skill format (YAML frontmatter + Markdown body). Other agent frameworks that support `SKILL.md` can load it manually.
+
+## Version
+
+| Version | Date | Change |
+| --- | --- | --- |
+| **v2.0.0** | 2026-11-16 | Tiered recall (digest → index → excerpt → full note); `memory-build` / `memory-search` scripts; cold archives excluded by default; load once per session |
+| v1.0.0 | 2026-11-13 | First public release |
 
 ## License
 
